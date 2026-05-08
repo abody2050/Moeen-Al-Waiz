@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.uid == request.auth.uid 
+        && data.displayName is string && data.displayName.size() <= 100
+        && (data.email == null || (data.email is string && data.email.size() <= 255))
+        && data.idNumber is string && data.idNumber.size() == 5;
+    }
+
+    // --- Sermon Validation ---
+    function isValidSermon(data) {
+      return data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 50000 
+        && data.type in ['sermon', 'exhortation', 'lesson', 'reflection', 'story']
+        && (data.duration == null || (data.duration is int && data.duration >= 0 && data.duration <= 300));
+    }
+
+    // --- Collections ---
+    
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) 
+        && incoming().idNumber == existing().idNumber; // Immutable ID
+    }
+
+    match /sermons/{sermonId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid; // Secure List
+      
+      allow create: if isSignedIn() && isValidSermon(incoming());
+      
+      allow update: if isSignedIn() && isOwner(existing().userId) 
+        && isValidSermon(incoming())
+        && incoming().userId == existing().userId; // Prevent hijacking
+        
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+  }
+}

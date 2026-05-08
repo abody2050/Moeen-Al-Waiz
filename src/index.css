@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-slate-800 transition-colors duration-200;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  @apply bg-slate-950 text-slate-100;
+}
+
+@media print {
+  header, footer, button, .no-print, .fixed, .control-panel, .toolbar-floating, .edit-section {
+    display: none !important;
+  }
+  body {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .preview-paper {
+  box-shadow: none !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0.5cm !important;
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+}
+
+.animate-in {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.quran-verse {
+  @apply text-emerald-700 font-bold inline text-[0.92em] px-0.5;
+  font-family: 'Scheherazade New', serif;
+}
+.dark .quran-verse { @apply text-emerald-400; }
+
+.hadith-text {
+  @apply text-blue-700 font-bold inline text-[0.88em] px-0.5;
+  font-family: 'Amiri', serif;
+}
+.dark .hadith-text { @apply text-blue-400; }
+
+.quote-text {
+  @apply text-amber-700 font-medium italic inline text-[0.88em];
+}
+.dark .quote-text { @apply text-amber-400; }
+
+.source-ref {
+  @apply text-[0.6em] font-bold text-emerald-600 align-super leading-none cursor-pointer hover:text-emerald-500 transition-colors px-0.5;
+  font-family: sans-serif;
+}
+
+.ref-item {
+  @apply transition-colors duration-500;
+}
+
+.ref-highlight {
+  @apply bg-emerald-100/50 dark:bg-emerald-900/30 ring-4 ring-emerald-500/10 rounded;
+}
+
+.khutbah-divider {
+  @apply flex items-center justify-center my-6 gap-3 select-none;
+}
+.khutbah-divider::before, .khutbah-divider::after {
+  content: "";
+  @apply h-[2px] flex-1;
+  background: linear-gradient(to left, transparent, #10b98144, transparent);
+}
+
+.ambient-glow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+.dark .ambient-glow {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+}
+
+.khutbah-title-text {
+  @apply bg-slate-100 px-3 py-1 rounded-lg text-slate-900 font-extrabold text-[0.95em];
+}
+.dark .khutbah-title-text {
+  @apply bg-slate-800 text-slate-50;
+}
+
+.typing-container p {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: typeAppear 0.4s ease forwards;
+}
+
+@keyframes typeAppear {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.streaming p:last-child::after {
+  content: "|";
+  @apply text-emerald-500 animate-pulse font-bold;
+}
+
+.shimmer-bar {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent 25%, #10b981 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

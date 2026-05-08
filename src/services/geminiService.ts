@@ -1,0 +1,94 @@
+import { GoogleGenAI } from "@google/genai";
+import { Section, SectionConfig } from "../types";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+export const SECTION_CONFIG: Record<string, SectionConfig> = {
+  sermon: { title: 'الخطبة المنبرية', text: 'text-emerald-600', label: 'خطبة', icon: null },
+  exhortation: { title: 'الموعظة المؤثرة', text: 'text-indigo-600', label: 'موعظة', icon: null },
+  lesson: { title: 'الدرس العلمي', text: 'text-blue-600', label: 'درس', icon: null },
+  reflection: { title: 'الخاطرة الدعوية', text: 'text-amber-500', label: 'خاطرة', icon: null },
+  story: { title: 'قصة وعبرة', text: 'text-rose-600', label: 'قصة', icon: null },
+};
+
+export async function* generateSermonStream(
+  view: Section, 
+  title: string, 
+  duration: number, 
+  instructions: string
+) {
+  let specificConfig = '';
+  if (view === 'sermon') {
+    specificConfig = `نوع المحتوى: خطبة منبرية.
+    الهيكل: مقدمة الحاجة كاملة، ثم الخطبة الأولى، ثم فاصل قصير، ثم الخطبة الثانية، ثم الخاتمة والأدعية.
+    المتطلبات: تقسيم النص إلى (الخطبة الأولى) و (الخطبة الثانية).`;
+  } else if (view === 'exhortation') {
+    specificConfig = `نوع المحتوى: موعظة مؤثرة.
+    الهيكل: مقدمة نبوية كاملة بليغة، ثم نص الموعظة ككتلة واحدة مسترسلة وطويلة جداً، دون تقسيمها لخطبتين.
+    المتطلبات: يجب أن تكون الموعظة غنية بالرقائق والقصص المؤثرة.`;
+  } else if (view === 'reflection') {
+    specificConfig = `نوع المحتوى: خاطرة دعوية.
+    الهيكل: مقدمة قصيرة جداً (بسم الله والصلاة والسلام على رسول الله وبعد)، ثم الدخول في الخاطرة مباشرة بأسلوب أدبي بليغ ومركز.
+    المتطلبات: نص واحد مسترسل ومكثف.`;
+  } else if (view === 'lesson') {
+    specificConfig = `نوع المحتوى: درس علمي.
+    الهيكل: مقدمة تعليمية (الحمد لله رب العالمين والصلوات على المرسلين، أما بعد فهذا درس في...)، ثم تقسيم الدرس إلى عناصر موضوعية واضحة.
+    المتطلبات: أسلوب أكاديمي شرعي رصين.`;
+  } else if (view === 'story') {
+    specificConfig = `نوع المحتوى: قصة وعبرة.
+    الهيكل: مقدمة سردية مشوقة، ثم أحداث القصة، ثم استخراج الفوائد والعبر في النهاية.
+    المتطلبات: نص مشوق وبليغ.`;
+  }
+
+  const systemInstruction = `أنت باحث شرعي ومحرر لغوي بليغ جداً. 
+    صغ المحتوى باللغة العربية الفصحى البليغة بأسلوب وعظي رصين ومؤثر.
+    
+    ${specificConfig}
+
+    قواعد التنسيق الإلزامية:
+    1. الكثافة النصية: المدة المطلوبة ${duration} دقيقة. يجب أن يكون النص طويلاً جداً ومسترسلاً بأسلوب أدبي رفيع.
+    2. اقتراح العنوان: اجعل العنوان المقترح بليغاً ومركزاً. ابدأ ردك بـ: "SUGGESTED_TITLE: [العنوان الجديد]" في أول سطر.
+    3. الآيات القرآنية: حصراً بين ﴿ ﴾ مشكولة بدقة.
+    4. الأحاديث النبوية: حصراً بين القوسين الصغيرين « » (مثال: «إنما الأعمال بالنيات»).
+    5. أقوال العلماء والحكم: حصراً بين علامات الاقتباس المزخرفة “ ” (مثال: “العلم ما نفع”).
+    6. التوثيق: استخدم أرقام مراجع صغيرة جداً بين [ ] مثل [1] توضع مباشرة بعد النص المقتبس.
+    7. المراجع والمصادر: اذكرها في النهاية بكل دقة وتفصيل تحت عنوان "----المصادر والمراجع----".`;
+
+  const prompt = `الموضوع: ${title}. 
+    النوع: ${SECTION_CONFIG[view]?.label || 'محتوى دعوي'}. 
+    المدة المستهدفة للإلقاء: ${duration} دقيقة. 
+    ملاحظات إضافية: ${instructions}.`;
+
+  const response = await ai.models.generateContentStream({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: { systemInstruction }
+  });
+
+  for await (const chunk of response) {
+    if (chunk.text) {
+      yield chunk.text;
+    }
+  }
+}
+
+export async function refineContent(
+  currentContent: string,
+  instruction: string
+) {
+  const systemInstruction = `أنت تقوم بتحديث نص دعوي. عدل فقط ما يطلبه المستخدم مع الحفاظ التام على:
+  1. الهيكل العام (المقدمة، الخطبة الأولى، الخطبة الثانية، الخاتمة).
+  2. الآيات القرآنية كما هي ﴿ ﴾.
+  3. التوثيق التفصيلي والمراجع.`;
+
+  const prompt = `الطلب الجديد: "${instruction}"
+  النص الحالي المراد تعديله: \n\n${currentContent}`;
+
+  const result = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: { systemInstruction }
+  });
+
+  return result.text;
+}
