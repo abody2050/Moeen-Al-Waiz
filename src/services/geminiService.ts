@@ -1,19 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
 import { Section, SectionConfig } from "../types";
-
-let aiInstance: any = null;
-
-function getAI() {
-  if (!aiInstance) {
-    // Rely on Vite's 'define' or environment variables
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("يرجى إعداد مفتاح Gemini API في الإعدادات (GEMINI_API_KEY) للبدء.");
-    }
-    aiInstance = new GoogleGenAI({ apiKey });
-  }
-  return aiInstance;
-}
 
 export const SECTION_CONFIG: Record<string, SectionConfig> = {
   sermon: { title: 'الخطبة المنبرية', text: 'text-emerald-600', label: 'خطبة', icon: null },
@@ -29,6 +14,9 @@ export async function* generateSermonStream(
   duration: number, 
   instructions: string
 ) {
+  const targetWords = duration * 100;
+  const wordCountVariance = duration > 10 ? 100 : 20;
+
   let specificConfig = '';
   if (view === 'sermon') {
     specificConfig = `نوع المحتوى: خطبة منبرية.
@@ -51,9 +39,6 @@ export async function* generateSermonStream(
     الهيكل: مقدمة سردية مشوقة، ثم أحداث القصة، ثم استخراج الفوائد والعبر في النهاية.
     المتطلبات: نص مشوق وبليغ.`;
   }
-
-  const targetWords = duration * 100;
-  const wordCountVariance = duration > 10 ? 100 : 20;
 
   const systemInstruction = `أنت باحث شرعي ومحرر لغوي بليغ جداً. 
     صغ المحتوى باللغة العربية الفصحى البليغة بأسلوب وعظي رصين ومؤثر.
@@ -78,15 +63,42 @@ export async function* generateSermonStream(
     المدة المستهدفة للإلقاء: ${duration} دقيقة (المطلوب نص بطول ${targetWords} كلمة تقريباً). 
     ملاحظات إضافية: ${instructions}.`;
 
-  const response = await getAI().models.generateContentStream({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: { systemInstruction }
+  const response = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ view, title, duration, instructions, systemInstruction, prompt }),
   });
 
-  for await (const chunk of response) {
-    if (chunk.text) {
-      yield chunk.text;
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || "Failed to connect to server");
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.text) yield parsed.text;
+        } catch (e) {
+          console.error("Error parsing stream chunk", e);
+        }
+      }
     }
   }
 }
@@ -103,11 +115,17 @@ export async function refineContent(
   const prompt = `الطلب الجديد: "${instruction}"
   النص الحالي المراد تعديله: \n\n${currentContent}`;
 
-  const result = await getAI().models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: { systemInstruction }
+  const response = await fetch("/api/refine", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, systemInstruction }),
   });
 
-  return result.text;
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || "Failed to refine content");
+  }
+
+  const data = await response.json();
+  return data.text;
 }
