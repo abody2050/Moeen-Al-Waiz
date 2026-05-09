@@ -1,6 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;700;900&family=Lateef&family=Scheherazade+New:wght@400;700&family=Tajawal:wght@400;700;900&family=Vazirmatn:wght@400;700;900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.font-lateef { font-family: 'Lateef', serif; }
+.font-amiri { font-family: 'Amiri', serif; }
+.font-scheherazade { font-family: 'Scheherazade New', serif; }
+.font-cairo { font-family: 'Cairo', sans-serif; }
+.font-tajawal { font-family: 'Tajawal', sans-serif; }
+.font-vazir { font-family: 'Vazirmatn', sans-serif; }
 
 body {
   @apply bg-slate-50 text-slate-800 transition-colors duration-200;
@@ -40,14 +48,15 @@ body {
 }
 
 .quran-verse {
-  @apply text-emerald-700 font-bold inline text-[0.92em] px-0.5;
-  font-family: 'Scheherazade New', serif;
+  @apply text-emerald-700 font-bold inline text-[0.95em] px-1;
+  font-family: 'Amiri', 'Scheherazade New', serif !important;
+  direction: rtl;
 }
 .dark .quran-verse { @apply text-emerald-400; }
 
 .hadith-text {
-  @apply text-blue-700 font-bold inline text-[0.88em] px-0.5;
-  font-family: 'Amiri', serif;
+  @apply text-blue-700 font-bold inline text-[0.9em] px-1;
+  font-family: 'Amiri', serif !important;
 }
 .dark .hadith-text { @apply text-blue-400; }
 
@@ -112,28 +121,44 @@ body {
   scrollbar-width: none;
 }
 
-/* Stable Typing */
-.streaming p.animate-in {
-  animation: typeAppear 0.3s ease-out forwards;
+.paper-content p {
+  @apply mb-4 leading-relaxed;
 }
-@keyframes typeAppear {
-  from { opacity: 0; transform: translateY(2px); }
-  to { opacity: 1; transform: translateY(0); }
+
+.streaming {
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+}
+
+.streaming p:last-child {
+  @apply relative;
 }
 
 .streaming p:last-child::after {
-  content: "|";
-  @apply text-emerald-500 animate-pulse font-bold;
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  @apply bg-emerald-500 animate-pulse ml-1 align-middle;
 }
 
 .shimmer-bar {
-  height: 3px;
+  height: 4px;
   width: 100%;
-  background: linear-gradient(90deg, transparent 25%, #10b981 50%, transparent 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite linear;
+  @apply bg-emerald-100 dark:bg-emerald-900/30 relative overflow-hidden;
 }
+
+.shimmer-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.4), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }

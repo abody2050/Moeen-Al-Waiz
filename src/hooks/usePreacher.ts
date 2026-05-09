@@ -4,6 +4,8 @@ import { dbService } from '../services/dbService';
 import { UserProfile, SavedContent, FontStyle } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
+import { getHijriDate } from '../lib/dateUtils';
+
 export const usePreacher = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -25,11 +27,11 @@ export const usePreacher = () => {
             displayName: firebaseUser.displayName || 'واعظ',
             email: firebaseUser.email,
             idNumber: newId,
-            createdAt: new Date().toISOString(),
+            createdAt: getHijriDate(),
             setupComplete: false,
             settings: {
               fontStyle: 'lateef',
-              fontSize: 16,
+              fontSize: 12,
               lineHeight: 1.6,
               isDarkMode: false
             }

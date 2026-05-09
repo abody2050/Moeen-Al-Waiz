@@ -10,7 +10,9 @@ import {
 } from 'lucide-react';
 import { usePreacher } from './hooks/usePreacher';
 import { auth } from './lib/firebase';
+import { getHijriDate } from './lib/dateUtils';
 import { generateSermonStream, refineContent, SECTION_CONFIG } from './services/geminiService';
+import { analyzeInput } from './services/safetyService';
 import { Section, SavedContent, Notification } from './types';
 import { PreviewToolbar } from './components/PreviewToolbar';
 import { SermonPaper } from './components/SermonPaper';
@@ -36,6 +38,7 @@ const App = () => {
   const [isTitleManual, setIsTitleManual] = useState(false);
   const [duration, setDuration] = useState(15);
   const [instructions, setInstructions] = useState('');
+  const [currentSermonDate, setCurrentSermonDate] = useState<string>('');
   const [editableContent, setEditableContent] = useState('');
   const [displayedContent, setDisplayedContent] = useState('');
   const [editInstruction, setEditInstruction] = useState('');
@@ -53,6 +56,42 @@ const App = () => {
   const handleGenerate = async () => {
     if (!formTitle) return addNotification('يرجى تحديد الموضوع أولاً', 'error');
     
+    let currentTitle = formTitle;
+
+    // Safety & Quality Analysis
+    setIsThinking(true);
+    try {
+      const analysis = await analyzeInput(formTitle, instructions);
+      
+      if (analysis.status === 'REJECT') {
+        setIsThinking(false);
+        alert(`تنبيه هام: ${analysis.message}`);
+        return;
+      }
+      
+      if (analysis.status === 'VIOLATION') {
+        setIsThinking(false);
+        addNotification(analysis.message || 'المحتوى غير لائق', 'warning');
+        return;
+      }
+      
+      if (analysis.status === 'CLARIFY') {
+        setIsThinking(false);
+        addNotification(analysis.message || 'يرجى توضيح العنوان', 'info');
+        return;
+      }
+      
+      if (analysis.status === 'IMPROVE') {
+        if (analysis.improvedTitle) {
+          setFormTitle(analysis.improvedTitle);
+          currentTitle = analysis.improvedTitle;
+        }
+        // Notification suppressed as per user request
+      }
+    } catch (err) {
+      console.warn("Safety check failed, proceeding anyway...");
+    }
+
     setIsStreaming(true); 
     setIsThinking(true);
     setEditableContent(''); 
@@ -61,7 +100,7 @@ const App = () => {
     try {
       let fullText = '';
       let titleFound = false;
-      const stream = generateSermonStream(view as Section, formTitle, duration, instructions);
+      const stream = generateSermonStream(view as Section, currentTitle, duration, instructions);
 
       for await (const chunk of stream) {
         if (isThinking) setIsThinking(false);
@@ -70,30 +109,39 @@ const App = () => {
         if (!titleFound && !isTitleManual && fullText.includes('SUGGESTED_TITLE:')) {
           const titleMatch = fullText.match(/SUGGESTED_TITLE:\s*([^\n]+)/);
           if (titleMatch) {
-            setFormTitle(titleMatch[1].trim());
+            const newTitle = titleMatch[1].trim();
+            setFormTitle(newTitle);
+            currentTitle = newTitle;
             titleFound = true;
           }
         }
 
-        const cleanText = fullText.replace(/SUGGESTED_TITLE:[^\n]*\n?/, '');
+        const cleanText = fullText
+          .replace(/SUGGESTED_TITLE:[^\n]*\n?/, '')
+          .replace(/---FINISH---/, '');
         setEditableContent(cleanText);
       }
       
-      const finalCleanText = fullText.replace(/SUGGESTED_TITLE:[^\n]*\n?/, '');
+      const finalCleanText = fullText
+        .replace(/SUGGESTED_TITLE:[^\n]*\n?/, '')
+        .replace(/---FINISH---/, '');
+
       if (finalCleanText) {
+        const hDate = getHijriDate();
+        setCurrentSermonDate(hDate);
         const newSermon: SavedContent = {
           id: Date.now().toString(),
-          title: formTitle,
+          title: currentTitle,
           type: view as Section,
           content: finalCleanText,
-          date: new Date().toLocaleDateString('ar-SA'),
+          date: hDate,
           userId: user?.uid || 'anon',
           preacherName: profile?.displayName,
           duration,
           instructions
         };
         await addSermon(newSermon);
-        addNotification('اكتملت صياغة النص بنجاح', 'success');
+        addNotification('اكتملت صياغة النص بكلمات بليغة', 'success');
       }
     } catch (error) {
       console.error(error);
@@ -139,10 +187,25 @@ const App = () => {
             onChange={e => setSetupName(e.target.value)}
           />
           <button 
-            disabled={!setupName.trim()}
-            onClick={() => updateProfile({ displayName: setupName, setupComplete: true })}
-            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95"
+            disabled={!setupName.trim() || isThinking}
+            onClick={async () => {
+              setIsThinking(true);
+              try {
+                const safety = await analyzeInput(setupName, '');
+                if (safety.status === 'REJECT' || safety.status === 'VIOLATION') {
+                  addNotification(safety.message || 'يرجى اختيار اسم لائق', 'warning');
+                  setIsThinking(false);
+                  return;
+                }
+                updateProfile({ displayName: setupName, setupComplete: true });
+              } catch (err) {
+                updateProfile({ displayName: setupName, setupComplete: true });
+              }
+              setIsThinking(false);
+            }}
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
+            {isThinking && <RefreshCw size={18} className="animate-spin" />}
             إكمال الإعداد
           </button>
         </div>
@@ -176,7 +239,7 @@ const App = () => {
   );
 
   return (
-    <main className={`max-w-2xl mx-auto min-h-screen ${profile?.settings.isDarkMode ? 'dark bg-slate-950' : 'bg-white'} relative shadow-2xl transition-colors font-sans`}>
+    <main className={`max-w-4xl mx-auto min-h-screen ${profile?.settings.isDarkMode ? 'dark bg-slate-950' : 'bg-white'} relative shadow-2xl transition-colors font-sans`}>
       
       {/* Notifications */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[3000] w-full max-w-sm px-4 pointer-events-none space-y-2">
@@ -223,7 +286,7 @@ const App = () => {
             {Object.entries(SECTION_CONFIG).map(([key, cfg]) => {
               const IconComp = key === 'sermon' ? ScrollText : key === 'exhortation' ? MessageSquare : key === 'lesson' ? BookOpen : key === 'reflection' ? Lightbulb : Bookmark;
               return (
-                <button key={key} onClick={() => setView(key as Section)} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-sm border border-slate-50 dark:border-slate-800 flex flex-col gap-4 hover:border-emerald-500 transition-all text-right group">
+                <button key={key} onClick={() => { setView(key as Section); setEditableContent(''); setFormTitle(''); }} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-sm border border-slate-50 dark:border-slate-800 flex flex-col gap-4 hover:border-emerald-500 transition-all text-right group">
                   <div className={`p-4 w-fit rounded-2xl bg-slate-50 dark:bg-slate-900 ${cfg.text} group-hover:scale-110 transition-transform`}>
                     <IconComp size={24} />
                   </div>
@@ -262,7 +325,7 @@ const App = () => {
                 return (
                   <div 
                     key={s.id} 
-                    onClick={() => { if (!longPressId) { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); } }}
+                    onClick={() => { if (!longPressId) { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); setCurrentSermonDate(s.date); } }}
                     onMouseDown={startPress}
                     onMouseUp={cancelPress}
                     onMouseMove={handleMove}
@@ -360,7 +423,7 @@ const App = () => {
         <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col relative overflow-x-hidden">
           
           <PreviewToolbar 
-            onBack={() => { setEditableContent(''); setDisplayedContent(''); setView('home'); }}
+            onBack={() => { setEditableContent(''); setDisplayedContent(''); setView('home'); setCurrentSermonDate(''); }}
             isManualEdit={isManualEdit}
             setIsManualEdit={setIsManualEdit}
             profile={profile}
@@ -370,7 +433,13 @@ const App = () => {
 
           {(isStreaming || isThinking) && <div className="ambient-glow" />}
 
-          <div className="pt-24 p-4 md:pt-28 md:p-10 flex flex-col items-center w-full">
+          <div className="pt-12 md:pt-16 p-4 md:p-10 flex flex-col items-center w-full">
+            {isStreaming && (
+              <div className="w-full max-w-[210mm] mb-4 no-print overflow-hidden rounded-full">
+                <div className="shimmer-bar" />
+              </div>
+            )}
+            
             <SermonPaper 
               content={displayedContent}
               title={formTitle}
@@ -378,6 +447,8 @@ const App = () => {
               view={view as Section}
               isStreaming={isStreaming}
               isManualEdit={isManualEdit}
+              date={currentSermonDate}
+              onTitleChange={(newTitle) => setFormTitle(newTitle)}
               onContentChange={(newText) => {
                 // If editing and separator is missing, re-append original sources
                 const currentSources = editableContent.split('----المصادر والمراجع----')[1] || '';
@@ -418,6 +489,14 @@ const App = () => {
                     onClick={async () => {
                       setIsRefining(true);
                       try {
+                        // Safety check for update instruction
+                        const safety = await analyzeInput('', editInstruction);
+                        if (safety.status === 'REJECT' || safety.status === 'VIOLATION' || safety.status === 'CLARIFY') {
+                          addNotification(safety.message || 'يرجى كتابة تعليمات واضحة ومناسبة', 'warning');
+                          setIsRefining(false);
+                          return;
+                        }
+
                         const res = await refineContent(editableContent, editInstruction);
                         if (res) {
                           setEditableContent(res);
@@ -437,7 +516,7 @@ const App = () => {
             </div>
           </div>
 
-          <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl p-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 z-[400] flex gap-4 no-print shadow-2xl">
+          <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-4xl p-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 z-[400] flex gap-4 no-print shadow-2xl">
              <button onClick={() => navigator.clipboard.writeText(`${formTitle}\n\n${editableContent}`).then(() => addNotification('تم النسخ', 'success'))} className="flex-1 bg-slate-50 dark:bg-slate-800 py-4 rounded-2xl text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 dark:text-white"><Copy size={18}/> نسخ</button>
              <button onClick={() => navigator.share && navigator.share({ title: formTitle, text: editableContent })} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-xl hover:bg-emerald-700 transition-all"><Share2 size={18}/> مشاركة</button>
           </footer>
