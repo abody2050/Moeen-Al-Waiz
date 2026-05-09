@@ -49,12 +49,12 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
     
     return lines.map((line, lineIdx) => {
       const trimmed = line.trim();
-      if (!trimmed) return <div key={`empty-${lineIdx}`} className="h-4" />;
+      if (!trimmed) return null;
 
-      if (trimmed.includes('الخطبة الأولى') || trimmed.includes('الخطبة الثانية')) {
+      if (trimmed.startsWith('###')) {
         return (
           <div key={`div-${lineIdx}`} className="khutbah-divider">
-            <span className="khutbah-title-text">{trimmed}</span>
+            <span className="khutbah-title-text">{trimmed.replace(/###/g, '').trim()}</span>
           </div>
         );
       }
@@ -83,7 +83,10 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
               id={`cite-${num}`}
               key={match.index} 
               className="source-ref"
-              onClick={() => num && scrollToRef(`ref-${num}`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (num) scrollToRef(`ref-${num}`);
+              }}
             >
               {found}
             </span>
@@ -98,7 +101,7 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
       }
 
       return (
-        <p key={`line-${lineIdx}`} className="text-justify indent-4 mb-2 animate-in">
+        <p key={`line-${lineIdx}`} className={`text-justify mb-2 ${isStreaming && lineIdx === lines.length - 1 ? 'animate-in' : ''}`}>
           {elements}
         </p>
       );
@@ -110,24 +113,36 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
       layout
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`w-full max-w-[210mm] bg-white dark:bg-slate-800 shadow-2xl p-4 md:p-8 border border-slate-200 dark:border-slate-800 rounded-lg relative min-h-[500px] preview-paper font-${fontStyle}`}
+      className={`w-full max-w-[210mm] bg-white dark:bg-slate-800 shadow-2xl p-4 md:p-6 border border-slate-200 dark:border-slate-800 rounded-lg relative preview-paper font-${fontStyle}`}
       style={{ fontSize: `${fontSize}pt`, lineHeight: lineHeight }}
     >
       {/* Redesigned Paper Header */}
-      <div className="flex justify-between items-center mb-10 border-b border-slate-100 dark:border-slate-700 pb-4 relative h-16">
+      <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 relative min-h-[4rem]">
         <div className="flex flex-col gap-0.5 w-1/4">
-          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 truncate">
+          <div 
+            className={`text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 truncate ${isManualEdit ? 'ring-1 ring-slate-100 rounded' : ''}`}
+            contentEditable={isManualEdit}
+            suppressContentEditableWarning
+          >
             <Quote size={10} className="text-emerald-500 shrink-0" />
             <span className="truncate">{profile?.displayName}</span>
           </div>
-          <div className="text-[9px] font-bold text-slate-300 dark:text-slate-600 flex items-center gap-1.5">
+          <div 
+            className={`text-[9px] font-bold text-slate-300 dark:text-slate-600 flex items-center gap-1.5 ${isManualEdit ? 'ring-1 ring-slate-100 rounded' : ''}`}
+            contentEditable={isManualEdit}
+            suppressContentEditableWarning
+          >
              <Calendar size={10} className="shrink-0" />
              <span>{new Date().toLocaleDateString('ar-SA')}</span>
           </div>
         </div>
 
         <div className="text-center absolute left-1/2 -translate-x-1/2 w-1/2">
-          <h1 className="text-base md:text-lg font-black text-slate-800 dark:text-slate-100 leading-tight">
+          <h1 
+            className={`text-base md:text-lg font-black text-slate-800 dark:text-slate-100 leading-tight outline-none ${isManualEdit ? 'bg-slate-50 rounded px-2' : ''}`}
+            contentEditable={isManualEdit}
+            suppressContentEditableWarning
+          >
             {title}
           </h1>
         </div>
@@ -139,7 +154,7 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
       </div>
 
       <div 
-        className={`outline-none min-h-[300px] typing-container ${isStreaming ? 'streaming' : ''} ${isManualEdit ? 'ring-1 ring-emerald-500/20 p-4 rounded-xl bg-slate-50/20 dark:bg-slate-900/10' : ''}`}
+        className={`outline-none typing-container ${isStreaming ? 'streaming' : ''} ${isManualEdit ? 'ring-1 ring-emerald-500/20 p-4 rounded-xl bg-slate-50/20 dark:bg-slate-900/10' : ''}`}
         contentEditable={isManualEdit}
         suppressContentEditableWarning
         onBlur={e => onContentChange(e.currentTarget.innerText)}

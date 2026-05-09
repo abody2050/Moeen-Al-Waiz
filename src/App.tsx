@@ -23,15 +23,17 @@ const toArabicDigits = (num: number | string) => {
 };
 
 const App = () => {
-  const { user, profile, sermons, loading, signInWithGoogle, updateProfile, addSermon } = usePreacher();
+  const { user, profile, sermons, loading, signInWithGoogle, updateProfile, addSermon, deleteSermon } = usePreacher();
   const [view, setView] = useState<Section | 'home'>('home');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isManualEdit, setIsManualEdit] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [longPressId, setLongPressId] = useState<string | null>(null);
   
   const [formTitle, setFormTitle] = useState('');
+  const [isTitleManual, setIsTitleManual] = useState(false);
   const [duration, setDuration] = useState(15);
   const [instructions, setInstructions] = useState('');
   const [editableContent, setEditableContent] = useState('');
@@ -57,18 +59,18 @@ const App = () => {
 
     try {
       let fullText = '';
-      let titleChecked = false;
+      let titleFound = false;
       const stream = generateSermonStream(view as Section, formTitle, duration, instructions);
 
       for await (const chunk of stream) {
         if (isThinking) setIsThinking(false);
         fullText += chunk;
 
-        if (!titleChecked && fullText.includes('SUGGESTED_TITLE:')) {
+        if (!titleFound && !isTitleManual && fullText.includes('SUGGESTED_TITLE:')) {
           const titleMatch = fullText.match(/SUGGESTED_TITLE:\s*([^\n]+)/);
           if (titleMatch) {
             setFormTitle(titleMatch[1].trim());
-            titleChecked = true;
+            titleFound = true;
           }
         }
 
@@ -202,22 +204,65 @@ const App = () => {
               <RefreshCw size={14} className="text-emerald-500" /> آخر السجلات المحفوظة
             </h3>
             <div className="space-y-3">
-              {sermons.map(s => (
-                <div 
-                  key={s.id} 
-                  onClick={() => { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); }}
-                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-750 transition-all group"
-                >
-                  <div className="w-10 h-10 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-emerald-600">
-                    <ScrollText size={18} />
+              {sermons.map(s => {
+                let pressTimer: any;
+                let startPos = { x: 0, y: 0 };
+                
+                const startPress = (e: any) => {
+                  const touch = e.touches ? e.touches[0] : e;
+                  startPos = { x: touch.clientX, y: touch.clientY };
+                  pressTimer = setTimeout(() => setLongPressId(s.id), 800);
+                };
+                
+                const handleMove = (e: any) => {
+                  const touch = e.touches ? e.touches[0] : e;
+                  const dist = Math.sqrt(
+                    Math.pow(touch.clientX - startPos.x, 2) + 
+                    Math.pow(touch.clientY - startPos.y, 2)
+                  );
+                  if (dist > 10) clearTimeout(pressTimer);
+                };
+
+                const cancelPress = () => clearTimeout(pressTimer);
+
+                return (
+                  <div 
+                    key={s.id} 
+                    onClick={() => { if (!longPressId) { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); } }}
+                    onMouseDown={startPress}
+                    onMouseUp={cancelPress}
+                    onMouseMove={handleMove}
+                    onTouchStart={startPress}
+                    onTouchEnd={cancelPress}
+                    onTouchMove={handleMove}
+                    className={`bg-white dark:bg-slate-800 p-4 rounded-2xl border flex items-center gap-4 cursor-pointer transition-all group relative ${longPressId === s.id ? 'border-rose-500 scale-95' : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'}`}
+                  >
+                    <div className="w-10 h-10 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-emerald-600">
+                      <ScrollText size={18} />
+                    </div>
+                    <div className="flex-1 truncate">
+                      <h4 className="font-bold text-xs dark:text-white truncate">{s.title}</h4>
+                      <span className="text-[10px] text-slate-300 font-bold">{s.date}</span>
+                    </div>
+                    <ChevronLeft size={16} className="text-slate-200" />
+
+                    <AnimatePresence>
+                      {longPressId === s.id && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                          className="absolute inset-0 bg-rose-600 rounded-2xl flex items-center justify-around z-50 px-4"
+                        >
+                          <span className="text-[10px] font-bold text-white">هل تود الحذف؟</span>
+                          <div className="flex gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); deleteSermon(s.id); setLongPressId(null); addNotification('تم الحذف بنجاح', 'success'); }} className="bg-white text-rose-600 px-4 py-1.5 rounded-lg font-bold text-[10px]">نعم</button>
+                            <button onClick={(e) => { e.stopPropagation(); setLongPressId(null); }} className="bg-rose-700 text-white px-4 py-1.5 rounded-lg font-bold text-[10px]">تراجع</button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="flex-1 truncate">
-                    <h4 className="font-bold text-xs dark:text-white truncate">{s.title}</h4>
-                    <span className="text-[10px] text-slate-300 font-bold">{s.date}</span>
-                  </div>
-                  <ChevronLeft size={16} className="text-slate-200" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -242,7 +287,7 @@ const App = () => {
                 placeholder="عن ماذا تود الحديث اليوم؟" 
                 className="w-full p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-emerald-500 outline-none text-md font-bold dark:text-white shadow-inner" 
                 value={formTitle} 
-                onChange={e => setFormTitle(e.target.value)} 
+                onChange={e => { setFormTitle(e.target.value); setIsTitleManual(true); }} 
                />
             </div>
 
@@ -311,15 +356,28 @@ const App = () => {
             />
 
             {/* Smart Refine */}
-            <div className="w-full max-w-[210mm] bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-xl mt-10 mb-32 border border-slate-100 dark:border-slate-800 no-print">
-               <h4 className="font-bold text-sm mb-4 flex items-center gap-2 dark:text-white"><RefreshCw size={18} className={isRefining ? 'animate-spin text-emerald-500' : 'text-emerald-500'} /> التحديث الذكي</h4>
-               <p className="text-[10px] text-slate-400 mb-6 font-bold">اطلب تعديلاً محدداً مثل: "أضف حديثاً عن الحياء"، "اجعل الخاتمة أدعية للمسلمين"، "بسط الأسلوب".</p>
-               <div className="flex gap-4">
-                  <textarea 
-                    placeholder="ما الذي تود تحديثه في هذا المحتوى؟" 
-                    className="flex-1 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-emerald-500 outline-none text-xs font-bold h-24 dark:text-white leading-relaxed shadow-inner"
+            <div className="w-full max-w-[210mm] bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-lg mt-8 mb-32 border border-slate-100 dark:border-slate-700 no-print">
+               <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600">
+                    <RefreshCw size={16} className={isRefining ? 'animate-spin' : ''} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[10px] dark:text-white uppercase tracking-widest">تحديث المحتوى</h4>
+                    <p className="text-[9px] text-slate-400 font-bold">بسط الأسلوب، أضف دعاءً، أو أي تعديل آخر</p>
+                  </div>
+               </div>
+               <div className="flex gap-2 p-1 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                  <input 
+                    type="text"
+                    placeholder="اكتب تعليماتك هنا..." 
+                    className="flex-1 bg-transparent px-4 py-2 outline-none text-xs font-bold dark:text-white"
                     value={editInstruction}
                     onChange={e => setEditInstruction(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && editInstruction && !isRefining) {
+                        // Trigger refining
+                      }
+                    }}
                   />
                   <button 
                     disabled={isRefining || !editInstruction}
@@ -330,16 +388,16 @@ const App = () => {
                         if (res) {
                           setEditableContent(res);
                           setEditInstruction('');
-                          addNotification('تم تحديث النص بدقة', 'success');
+                          addNotification('تم التحديث بدقة', 'success');
                         }
                       } catch (err) {
                         addNotification('خطأ في التحديث', 'error');
                       }
                       setIsRefining(false);
                     }}
-                    className="px-8 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 shadow-xl disabled:opacity-50"
+                    className="bg-emerald-600 text-white px-5 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-lg transition-all active:scale-95 disabled:opacity-50"
                   >
-                    <Plus size={28} />
+                    تحديث
                   </button>
                </div>
             </div>

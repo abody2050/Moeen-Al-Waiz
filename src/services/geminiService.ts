@@ -1,7 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { Section, SectionConfig } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: any = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined. Please check your environment variables.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+}
 
 export const SECTION_CONFIG: Record<string, SectionConfig> = {
   sermon: { title: 'الخطبة المنبرية', text: 'text-emerald-600', label: 'خطبة', icon: null },
@@ -52,14 +63,17 @@ export async function* generateSermonStream(
     4. الأحاديث النبوية: حصراً بين القوسين الصغيرين « » (مثال: «إنما الأعمال بالنيات»).
     5. أقوال العلماء والحكم: حصراً بين علامات الاقتباس المزخرفة “ ” (مثال: “العلم ما نفع”).
     6. التوثيق: استخدم أرقام مراجع صغيرة جداً بين [ ] مثل [1] توضع مباشرة بعد النص المقتبس.
-    7. المراجع والمصادر: اذكرها في النهاية بكل دقة وتفصيل تحت عنوان "----المصادر والمراجع----".`;
+    7. المراجع والمصادر: اذكرها في النهاية بكل دقة وتفصيل تحت عنوان "----المصادر والمراجع----".
+    8. عدم إدارج أي ملاحظات جانبية: يمنع منعاً باتاً كتابة أي تعليمات مسرحية أو ملاحظات مثل [فاصل قصير]، [توقف]، [نهاية الخطبة الأولى]، أو أي نص ليس جزءاً من الخطاب الفعلي.
+    9. الخطبة الأولى والثانية: إذا كان الطلب 'خطبة جمعة'، ابدأ بعبارة "### الخطبة الأولى" وانتقل للثانية بعبارة "### الخطبة الثانية" دون أي فواصل وصفية بينهما.
+    10. تنسيق الفقرات: استخدم سطرين فارغين بين كل فقرة وأخرى لضمان الوضوح.`;
 
   const prompt = `الموضوع: ${title}. 
     النوع: ${SECTION_CONFIG[view]?.label || 'محتوى دعوي'}. 
     المدة المستهدفة للإلقاء: ${duration} دقيقة. 
     ملاحظات إضافية: ${instructions}.`;
 
-  const response = await ai.models.generateContentStream({
+  const response = await getAI().models.generateContentStream({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: { systemInstruction }
@@ -84,7 +98,7 @@ export async function refineContent(
   const prompt = `الطلب الجديد: "${instruction}"
   النص الحالي المراد تعديله: \n\n${currentContent}`;
 
-  const result = await ai.models.generateContent({
+  const result = await getAI().models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: { systemInstruction }
