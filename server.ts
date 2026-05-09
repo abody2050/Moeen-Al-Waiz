@@ -14,29 +14,28 @@ async function startServer() {
   // API Routes
   app.post("/api/generate", async (req, res) => {
     try {
-      const { view, title, duration, instructions, systemInstruction, prompt } = req.body;
+      const { systemInstruction, prompt } = req.body;
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey) {
         return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
       }
 
-      const genAI = new GoogleGenAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const ai = new GoogleGenAI({ apiKey });
 
-      const result = await model.generateContentStream({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        systemInstruction: systemInstruction,
+      const result = await ai.models.generateContentStream({
+        model: "gemini-1.5-flash",
+        contents: prompt,
+        config: { systemInstruction }
       });
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      for await (const chunk of result.stream) {
-        const chunkText = chunk.text();
-        if (chunkText) {
-          res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+      for await (const chunk of result) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
         }
       }
 
@@ -57,15 +56,15 @@ async function startServer() {
         return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
       }
 
-      const genAI = new GoogleGenAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const ai = new GoogleGenAI({ apiKey });
 
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        systemInstruction: systemInstruction,
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: prompt,
+        config: { systemInstruction }
       });
 
-      res.json({ text: result.response.text() });
+      res.json({ text: result.text });
     } catch (error: any) {
       console.error("Refine Error:", error);
       res.status(500).json({ error: error.message });
@@ -81,14 +80,15 @@ async function startServer() {
         return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
       }
 
-      const genAI = new GoogleGenAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
+      const ai = new GoogleGenAI({ apiKey });
+
+      const result = await ai.models.generateContent({ 
         model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
       });
 
-      const result = await model.generateContent(prompt);
-      res.json(JSON.parse(result.response.text()));
+      res.json(JSON.parse(result.text || "{}"));
     } catch (error: any) {
       console.error("Analyze Error:", error);
       res.status(500).json({ error: error.message });
