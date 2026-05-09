@@ -11,7 +11,6 @@ import {
 import { usePreacher } from './hooks/usePreacher';
 import { auth } from './lib/firebase';
 import { generateSermonStream, refineContent, SECTION_CONFIG } from './services/geminiService';
-import { analyzeInput } from './services/safetyService';
 import { Section, SavedContent, Notification } from './types';
 import { PreviewToolbar } from './components/PreviewToolbar';
 import { SermonPaper } from './components/SermonPaper';
@@ -37,7 +36,6 @@ const App = () => {
   const [isTitleManual, setIsTitleManual] = useState(false);
   const [duration, setDuration] = useState(15);
   const [instructions, setInstructions] = useState('');
-  const [currentSermonDate, setCurrentSermonDate] = useState<string>('');
   const [editableContent, setEditableContent] = useState('');
   const [displayedContent, setDisplayedContent] = useState('');
   const [editInstruction, setEditInstruction] = useState('');
@@ -55,42 +53,6 @@ const App = () => {
   const handleGenerate = async () => {
     if (!formTitle) return addNotification('يرجى تحديد الموضوع أولاً', 'error');
     
-    let currentTitle = formTitle;
-
-    // Safety & Quality Analysis
-    setIsThinking(true);
-    try {
-      const analysis = await analyzeInput(formTitle, instructions);
-      
-      if (analysis.status === 'REJECT') {
-        setIsThinking(false);
-        alert(`تنبيه هام: ${analysis.message}`);
-        return;
-      }
-      
-      if (analysis.status === 'VIOLATION') {
-        setIsThinking(false);
-        addNotification(analysis.message || 'المحتوى غير لائق', 'warning');
-        return;
-      }
-      
-      if (analysis.status === 'CLARIFY') {
-        setIsThinking(false);
-        addNotification(analysis.message || 'يرجى توضيح العنوان', 'info');
-        return;
-      }
-      
-      if (analysis.status === 'IMPROVE') {
-        if (analysis.improvedTitle) {
-          setFormTitle(analysis.improvedTitle);
-          currentTitle = analysis.improvedTitle;
-        }
-        // Notification suppressed as per user request
-      }
-    } catch (err) {
-      console.warn("Safety check failed, proceeding anyway...");
-    }
-
     setIsStreaming(true); 
     setIsThinking(true);
     setEditableContent(''); 
@@ -99,7 +61,7 @@ const App = () => {
     try {
       let fullText = '';
       let titleFound = false;
-      const stream = generateSermonStream(view as Section, currentTitle, duration, instructions);
+      const stream = generateSermonStream(view as Section, formTitle, duration, instructions);
 
       for await (const chunk of stream) {
         if (isThinking) setIsThinking(false);
@@ -110,7 +72,6 @@ const App = () => {
           if (titleMatch) {
             const newTitle = titleMatch[1].trim();
             setFormTitle(newTitle);
-            currentTitle = newTitle;
             titleFound = true;
           }
         }
@@ -126,14 +87,12 @@ const App = () => {
         .replace(/---FINISH---/, '');
 
       if (finalCleanText) {
-        const hDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-uma', {day:'numeric', month:'long', year:'numeric'}).format(new Date());
-        setCurrentSermonDate(hDate);
         const newSermon: SavedContent = {
           id: Date.now().toString(),
-          title: currentTitle,
+          title: formTitle,
           type: view as Section,
           content: finalCleanText,
-          date: hDate,
+          date: new Date().toLocaleDateString('ar-SA'),
           userId: user?.uid || 'anon',
           preacherName: profile?.displayName,
           duration,
@@ -186,25 +145,10 @@ const App = () => {
             onChange={e => setSetupName(e.target.value)}
           />
           <button 
-            disabled={!setupName.trim() || isThinking}
-            onClick={async () => {
-              setIsThinking(true);
-              try {
-                const safety = await analyzeInput(setupName, '');
-                if (safety.status === 'REJECT' || safety.status === 'VIOLATION') {
-                  addNotification(safety.message || 'يرجى اختيار اسم لائق', 'warning');
-                  setIsThinking(false);
-                  return;
-                }
-                updateProfile({ displayName: setupName, setupComplete: true });
-              } catch (err) {
-                updateProfile({ displayName: setupName, setupComplete: true });
-              }
-              setIsThinking(false);
-            }}
-            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+            disabled={!setupName.trim()}
+            onClick={() => updateProfile({ displayName: setupName, setupComplete: true })}
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95"
           >
-            {isThinking && <RefreshCw size={18} className="animate-spin" />}
             إكمال الإعداد
           </button>
         </div>
@@ -324,7 +268,7 @@ const App = () => {
                 return (
                   <div 
                     key={s.id} 
-                    onClick={() => { if (!longPressId) { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); setCurrentSermonDate(s.date); } }}
+                    onClick={() => { if (!longPressId) { setEditableContent(s.content); setFormTitle(s.title); setView(s.type); } }}
                     onMouseDown={startPress}
                     onMouseUp={cancelPress}
                     onMouseMove={handleMove}
@@ -422,7 +366,7 @@ const App = () => {
         <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col relative overflow-x-hidden">
           
           <PreviewToolbar 
-            onBack={() => { setEditableContent(''); setDisplayedContent(''); setView('home'); setCurrentSermonDate(''); }}
+            onBack={() => { setEditableContent(''); setDisplayedContent(''); setView('home'); }}
             isManualEdit={isManualEdit}
             setIsManualEdit={setIsManualEdit}
             profile={profile}
@@ -446,8 +390,6 @@ const App = () => {
               view={view as Section}
               isStreaming={isStreaming}
               isManualEdit={isManualEdit}
-              date={currentSermonDate}
-              onTitleChange={(newTitle) => setFormTitle(newTitle)}
               onContentChange={(newText) => {
                 // If editing and separator is missing, re-append original sources
                 const currentSources = editableContent.split('----المصادر والمراجع----')[1] || '';
@@ -488,14 +430,6 @@ const App = () => {
                     onClick={async () => {
                       setIsRefining(true);
                       try {
-                        // Safety check for update instruction
-                        const safety = await analyzeInput('', editInstruction);
-                        if (safety.status === 'REJECT' || safety.status === 'VIOLATION' || safety.status === 'CLARIFY') {
-                          addNotification(safety.message || 'يرجى كتابة تعليمات واضحة ومناسبة', 'warning');
-                          setIsRefining(false);
-                          return;
-                        }
-
                         const res = await refineContent(editableContent, editInstruction);
                         if (res) {
                           setEditableContent(res);
