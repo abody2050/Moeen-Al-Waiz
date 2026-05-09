@@ -14,8 +14,25 @@ export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
-    console.error("Error signing in with Google", error);
+  } catch (error: any) {
+    console.error("Firebase Auth Error Details:", {
+      code: error.code,
+      message: error.message,
+      email: error.customData?.email,
+      credential: GoogleAuthProvider.credentialFromError(error),
+    });
+    
+    // Check for specific common errors
+    if (error.code === 'auth/unauthorized-domain') {
+      alert("خطأ: هذا النطاق غير مصرح به في Firebase. يرجى إضافة رابط Vercel إلى Authorized Domains في إعدادات Firebase.");
+    } else if (error.code === 'auth/popup-blocked') {
+      alert("تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة للموقع.");
+    } else if (error.code === 'auth/popup-closed-by-user') {
+      console.log("User closed the popup before finishing sign-in.");
+    } else {
+      alert(`حدث خطأ أثناء تسجيل الدخول: ${error.message}`);
+    }
+    
     throw error;
   }
 };
