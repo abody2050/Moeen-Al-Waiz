@@ -1,3 +1,16 @@
+import { GoogleGenAI } from "@google/genai";
+
+let genAI: GoogleGenAI | null = null;
+
+function getSafetyAI() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
+
 export type AnalysisResult = {
   status: 'PASS' | 'IMPROVE' | 'CLARIFY' | 'VIOLATION' | 'REJECT';
   message?: string;
@@ -6,6 +19,12 @@ export type AnalysisResult = {
 
 export async function analyzeInput(title: string, instructions: string): Promise<AnalysisResult> {
   try {
+    const ai = getSafetyAI();
+    if (!ai) {
+      console.warn("Gemini API Key missing - bypassing safety check.");
+      return { status: 'PASS' };
+    }
+    
     const prompt = `أنت مساعد رقابي لموقع "معين الواعظ". مهمتك تحليل مدخلات المستخدم (العنوان والتوجيهات) للتأكد من سلامتها وجودتها.
     
     المدخلات:
@@ -28,18 +47,21 @@ export async function analyzeInput(title: string, instructions: string): Promise
 
     تذكر: كن رفيقاً في النصح، إلا في حالات الرفض القوية.`;
 
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
     });
 
-    if (!response.ok) {
-      console.warn("Safety check failed on server - bypassing.");
-      return { status: 'PASS' };
+    const text = response.text;
+    if (text) {
+      // Parse direct JSON response
+      return JSON.parse(text) as AnalysisResult;
     }
-
-    return await response.json();
+    
+    return { status: 'PASS' };
   } catch (error) {
     console.error("Safety Analysis Error:", error);
     return { status: 'PASS' }; // Default to pass if AI fails

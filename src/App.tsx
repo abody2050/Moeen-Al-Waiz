@@ -143,10 +143,9 @@ const App = () => {
         await addSermon(newSermon);
         addNotification('اكتملت صياغة النص بكلمات بليغة', 'success');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      const errorMessage = error?.message || 'حدث خطأ في الاتصال، حاول لاحقاً';
-      addNotification(errorMessage, 'error');
+      addNotification('حدث خطأ في الاتصال، حاول لاحقاً', 'error');
     } finally {
       setIsStreaming(false);
       setIsThinking(false);
