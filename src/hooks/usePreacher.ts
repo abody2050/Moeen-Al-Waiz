@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth, signInWithGoogle } from '../lib/firebase';
+import { auth, signInWithGoogle, handleRedirectResponse } from '../lib/firebase';
 import { dbService } from '../services/dbService';
 import { UserProfile, SavedContent, FontStyle } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -11,6 +11,9 @@ export const usePreacher = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle redirect result on mount
+    handleRedirectResponse();
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       if (firebaseUser) {

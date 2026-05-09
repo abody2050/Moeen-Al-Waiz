@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -9,32 +9,41 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Standard sign-in helper
+// Standard sign-in helper - Using Redirect for better cross-domain reliability
 export const signInWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    // If you want to keep using Popup, use signInWithPopup(auth, googleProvider)
+    // But for many production issues on custom domains, Redirect is safer.
+    await signInWithRedirect(auth, googleProvider);
   } catch (error: any) {
-    console.error("Firebase Auth Error Details:", {
+    console.error("Firebase Auth Initiation Error:", {
       code: error.code,
       message: error.message,
-      email: error.customData?.email,
-      credential: GoogleAuthProvider.credentialFromError(error),
     });
     
-    // Check for specific common errors
     if (error.code === 'auth/unauthorized-domain') {
-      alert("خطأ: هذا النطاق غير مصرح به في Firebase. يرجى إضافة رابط Vercel إلى Authorized Domains في إعدادات Firebase.");
-    } else if (error.code === 'auth/popup-blocked') {
-      alert("تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة للموقع.");
-    } else if (error.code === 'auth/popup-closed-by-user') {
-      console.log("User closed the popup before finishing sign-in.");
+      alert("خطأ: هذا النطاق غير مصرح به في Firebase. يرجى إضافة رابط Vercel إلى Authorized Domains في إعدادات Firebase (Authentication -> Settings -> Authorized Domains).");
     } else {
-      alert(`حدث خطأ أثناء تسجيل الدخول: ${error.message}`);
+      alert(`حدث خطأ أثناء بدء تسجيل الدخول: ${error.message}`);
     }
     
     throw error;
   }
+};
+
+// Handle redirect result (call this in your main hook or component)
+export const handleRedirectResponse = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      console.log("Redirect success:", result.user.email);
+      return result.user;
+    }
+  } catch (error: any) {
+    console.error("Firebase Redirect Error:", error);
+    alert(`فشل تسجيل الدخول بعد التحويل: ${error.message}`);
+  }
+  return null;
 };
 
 // Logout helper
