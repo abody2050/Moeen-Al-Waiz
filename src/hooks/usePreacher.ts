@@ -26,6 +26,7 @@ export const usePreacher = () => {
             email: firebaseUser.email,
             idNumber: newId,
             createdAt: new Date().toISOString(),
+            setupComplete: false,
             settings: {
               fontStyle: 'lateef',
               fontSize: 16,

@@ -32,6 +32,7 @@ export interface UserProfile {
   email: string | null;
   idNumber: string;
   createdAt: any;
+  setupComplete?: boolean;
   settings: {
     fontStyle: FontStyle;
     fontSize: number;

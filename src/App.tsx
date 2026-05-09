@@ -40,6 +40,7 @@ const App = () => {
   const [displayedContent, setDisplayedContent] = useState('');
   const [editInstruction, setEditInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  const [setupName, setSetupName] = useState('');
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     const id = Date.now();
@@ -113,6 +114,39 @@ const App = () => {
         <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
         <span className="text-sm font-bold text-slate-400">جاري التحميل...</span>
       </div>
+    </div>
+  );
+
+  if (user && profile && !profile.setupComplete) return (
+    <div className="h-screen flex items-center justify-center bg-slate-950 p-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[2.5rem] p-10 shadow-2xl text-center border border-slate-700"
+      >
+        <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-600 mx-auto mb-6">
+          <BookMarked size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">مرحباً بك في معين الواعظ</h2>
+        <p className="text-xs text-slate-500 mb-8 font-bold">يرجى كتابة اسمك الكريم الذي سيظهر كـ "واعظ" في جميع خطبك ومواعظك الموثقة</p>
+        
+        <div className="space-y-4">
+          <input 
+            type="text"
+            placeholder="اسمك الكريم هنا..."
+            className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none text-sm font-bold dark:text-white text-center"
+            value={setupName}
+            onChange={e => setSetupName(e.target.value)}
+          />
+          <button 
+            disabled={!setupName.trim()}
+            onClick={() => updateProfile({ displayName: setupName, setupComplete: true })}
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95"
+          >
+            إكمال الإعداد
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 
@@ -432,6 +466,16 @@ const App = () => {
                 <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2rem] text-center">
                   <div className="text-[10px] font-bold text-emerald-600 uppercase mb-2">معرفك الرقمي الموثق</div>
                   <div className="text-2xl font-black text-emerald-900 dark:text-emerald-400 tracking-widest">{toArabicDigits(profile?.idNumber || '00000')}</div>
+                </div>
+
+                <div className="space-y-2 px-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase mr-4">اسم الواعظ</label>
+                  <input 
+                    type="text"
+                    className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-emerald-500 outline-none text-xs font-bold dark:text-white"
+                    value={profile?.displayName}
+                    onChange={e => updateProfile({ displayName: e.target.value })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-900 rounded-[2rem]">
