@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { usePreacher } from './hooks/usePreacher';
 import { auth } from './lib/firebase';
-import { getHijriDate } from './lib/dateUtils';
 import { generateSermonStream, refineContent, SECTION_CONFIG } from './services/geminiService';
 import { analyzeInput } from './services/safetyService';
 import { Section, SavedContent, Notification } from './types';
@@ -127,7 +126,7 @@ const App = () => {
         .replace(/---FINISH---/, '');
 
       if (finalCleanText) {
-        const hDate = getHijriDate();
+        const hDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-uma', {day:'numeric', month:'long', year:'numeric'}).format(new Date());
         setCurrentSermonDate(hDate);
         const newSermon: SavedContent = {
           id: Date.now().toString(),

@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Quote, Calendar, BookMarked, Library } from 'lucide-react';
 import { UserProfile, Section } from '../types';
-import { getHijriDate } from '../lib/dateUtils';
 
 interface SermonPaperProps {
   content: string;
@@ -134,7 +133,7 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
           </div>
           <div className="text-[7.5px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1 mr-1">
              <Calendar size={10} className="shrink-0 opacity-40" />
-             <span>{date || getHijriDate()}</span>
+             <span>{date || new Intl.DateTimeFormat('ar-SA-u-ca-islamic-uma', {day: 'numeric', month: 'long', year: 'numeric'}).format(new Date())}</span>
           </div>
         </div>
 
