@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Quote, Calendar, BookMarked, Library } from 'lucide-react';
 import { UserProfile, Section } from '../types';
+import { getHijriDate } from '../lib/dateUtils';
 
 interface SermonPaperProps {
   content: string;
@@ -10,11 +11,13 @@ interface SermonPaperProps {
   view: Section;
   isStreaming: boolean;
   isManualEdit: boolean;
+  date?: string;
   onContentChange: (text: string) => void;
+  onTitleChange: (text: string) => void;
 }
 
 export const SermonPaper: React.FC<SermonPaperProps> = ({ 
-  content, title, profile, view, isStreaming, isManualEdit, onContentChange 
+  content, title, profile, view, isStreaming, isManualEdit, date, onContentChange, onTitleChange 
 }) => {
   const parts = content.split('----المصادر والمراجع----');
   const mainBody = parts[0];
@@ -131,7 +134,7 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
           </div>
           <div className="text-[7.5px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1 mr-1">
              <Calendar size={10} className="shrink-0 opacity-40" />
-             <span>{new Intl.DateTimeFormat('ar-SA-u-ca-islamic-uma', {day: 'numeric', month: 'long', year: 'numeric'}).format(new Date())}</span>
+             <span>{date || getHijriDate()}</span>
           </div>
         </div>
 
@@ -141,6 +144,7 @@ export const SermonPaper: React.FC<SermonPaperProps> = ({
             className={`text-[11pt] md:text-[13pt] font-black text-slate-900 dark:text-white leading-tight outline-none tracking-tight transition-all ${isManualEdit ? 'bg-emerald-50 dark:bg-emerald-900/10 rounded-xl px-3 py-1 ring-1 ring-emerald-500/20 shadow-sm' : ''}`}
             contentEditable={isManualEdit}
             suppressContentEditableWarning
+            onBlur={e => onTitleChange(e.currentTarget.innerText)}
           >
             {title || 'موضوع المحاضرة'}
           </h1>

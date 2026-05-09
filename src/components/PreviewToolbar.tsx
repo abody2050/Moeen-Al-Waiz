@@ -32,13 +32,13 @@ const toArabicDigits = (num: number | string) => {
 };
 
 const LINE_HEIGHT_OPTIONS = [
-  { val: 1.0, name: 'مزداد ضيقاً' },
-  { val: 1.2, name: 'ضيق' },
-  { val: 1.4, name: 'متوازن' },
-  { val: 1.6, name: 'افتراضي' },
-  { val: 1.8, name: 'مريح' },
-  { val: 2.0, name: 'واسع' },
-  { val: 2.2, name: 'فائق الاتساع' },
+  { val: 1.0, name: 'ضيق جداً' },
+  { val: 1.5, name: 'متوسط' },
+  { val: 2.0, name: 'مزدوج' },
+  { val: 2.5, name: 'واسع' },
+  { val: 3.0, name: 'فائق الاتساع' },
+  { val: 3.5, name: 'رحيب جداً' },
+  { val: 4.0, name: 'أقصى مسافة' },
 ];
 
 export const PreviewToolbar: React.FC<PreviewToolbarProps> = ({ 
