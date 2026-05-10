@@ -79,7 +79,7 @@ export async function* generateSermonStream(
     ملاحظات إضافية: ${instructions}.`;
 
   const response = await getAI().models.generateContentStream({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-1.5-flash',
     contents: prompt,
     config: { systemInstruction }
   });
@@ -104,7 +104,7 @@ export async function refineContent(
   النص الحالي المراد تعديله: \n\n${currentContent}`;
 
   const result = await getAI().models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-1.5-flash',
     contents: prompt,
     config: { systemInstruction }
   });

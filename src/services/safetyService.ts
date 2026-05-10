@@ -48,7 +48,7 @@ export async function analyzeInput(title: string, instructions: string): Promise
     تذكر: كن رفيقاً في النصح، إلا في حالات الرفض القوية.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json"
