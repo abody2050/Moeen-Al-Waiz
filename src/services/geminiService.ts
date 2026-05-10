@@ -10,7 +10,7 @@ function getAI() {
     if (!apiKey) {
       throw new Error("يرجى إعداد مفتاح VITE_GEMINI_API_KEY في إعدادات Vercel للبدء.");
     }
-    aiInstance = new GoogleGenAI({ apiKey });
+    aiInstance = new GoogleGenAI(apiKey);
   }
   return aiInstance;
 }
@@ -79,7 +79,7 @@ export async function* generateSermonStream(
     ملاحظات إضافية: ${instructions}.`;
 
   const response = await getAI().models.generateContentStream({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     contents: prompt,
     config: { systemInstruction }
   });
@@ -104,7 +104,7 @@ export async function refineContent(
   النص الحالي المراد تعديله: \n\n${currentContent}`;
 
   const result = await getAI().models.generateContent({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     contents: prompt,
     config: { systemInstruction }
   });
