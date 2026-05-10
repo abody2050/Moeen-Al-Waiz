@@ -145,10 +145,8 @@ const App = () => {
       }
     } catch (error: any) {
       console.error(error);
-      const errorMessage = error.message?.includes('Firestore Error') 
-        ? 'حدث خطأ في قاعدة البيانات. تأكد من إضافة رابط Vercel إلى النطاقات المصرح بها في Firebase'
-        : 'حدث خطأ في الاتصال بالذكاء الاصطناعي، تأكد من صحة مفتاح GEMINI_API_KEY في إعدادات Vercel';
-      addNotification(errorMessage, 'error');
+      const errorDetail = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
+      addNotification(`خطأ: ${errorDetail}`, 'error');
     } finally {
       setIsStreaming(false);
       setIsThinking(false);
