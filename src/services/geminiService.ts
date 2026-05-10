@@ -5,10 +5,10 @@ let aiInstance: any = null;
 
 function getAI() {
   if (!aiInstance) {
-    // Rely on Vite's 'define' or environment variables
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use Vite's environment variable access
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("يرجى إعداد مفتاح Gemini API في الإعدادات (GEMINI_API_KEY) للبدء.");
+      throw new Error("يرجى إعداد مفتاح VITE_GEMINI_API_KEY في إعدادات Vercel للبدء.");
     }
     aiInstance = new GoogleGenAI({ apiKey });
   }
